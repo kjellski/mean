@@ -3,9 +3,14 @@
  */
 var mongoose = require('mongoose'),
     Schema = mongoose.Schema,
-    crypto = require('crypto'),
+    bcrypt = require('bcrypt'),
     _ = require('underscore'),
-    authTypes = ['github', 'twitter', 'facebook', 'google'];
+    authTypes = ['github', 'twitter', 'facebook', 'google'],
+    SALT_WORK_FACTOR = 10,
+    // these values can be whatever you want - we're defaulting to a
+    // max of 5 attempts, resulting in a 1 minute
+    MAX_LOGIN_ATTEMPTS = 5,
+    LOCK_TIME = 60 * 1000;
 
 
 /**
@@ -33,7 +38,7 @@ var UserSchema = new Schema({
 UserSchema.virtual('password').set(function(password) {
     this._password = password;
     this.salt = this.makeSalt();
-    this.hashed_password = this.encryptPassword(password);
+    this.hashed_password = this.encryptPassword(password, this.salt);
 }).get(function() {
     return this._password;
 });
@@ -70,14 +75,13 @@ UserSchema.path('hashed_password').validate(function(hashed_password) {
     return hashed_password.length;
 }, 'Password cannot be blank');
 
-
 /**
  * Pre-save hook
  */
 UserSchema.pre('save', function(next) {
     if (!this.isNew) return next();
 
-    if (!validatePresenceOf(this.password) && authTypes.indexOf(this.provider) === -1)
+    if (!validatePresenceOf(this.hashed_password) && authTypes.indexOf(this.provider) === -1)
         next(new Error('Invalid password'));
     else
         next();
@@ -95,7 +99,8 @@ UserSchema.methods = {
      * @api public
      */
     authenticate: function(plainText) {
-        return this.encryptPassword(plainText) === this.hashed_password;
+        console.dir(plainText);
+        return this.encryptPassword(plainText, this.salt) === this.hashed_password;
     },
 
     /**
@@ -105,7 +110,7 @@ UserSchema.methods = {
      * @api public
      */
     makeSalt: function() {
-       return crypto.randomBytes(16).toString('base64'); 
+        return bcrypt.genSaltSync(SALT_WORK_FACTOR);
     },
 
     /**
@@ -115,10 +120,9 @@ UserSchema.methods = {
      * @return {String}
      * @api public
      */
-    encryptPassword: function(password) {
-        if (!password || !this.salt) return '';
-        salt = new Buffer(this.salt, 'base64');
-        return crypto.pbkdf2Sync(password, salt, 10000, 64).toString('base64');
+    encryptPassword: function(password, salt) {
+        // hash the password using our new salt
+        return bcrypt.hashSync(password, salt); 
     }
 };
 
