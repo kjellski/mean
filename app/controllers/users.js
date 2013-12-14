@@ -57,12 +57,12 @@ exports.create = function(req, res) {
     user.save(function(err) {
         if (err) {
             console.log(err);
-            switch(err.code){
+            switch (err.code) {
                 case 11000:
                 case 11001:
                     message = 'Username already exists';
                     break;
-                default: 
+                default:
                     message = 'Please fill all the required fields';
             }
 
@@ -89,14 +89,12 @@ exports.me = function(req, res) {
  * Find user by id
  */
 exports.user = function(req, res, next, id) {
-    User
-        .findOne({
-            _id: id
-        })
-        .exec(function(err, user) {
-            if (err) return next(err);
-            if (!user) return next(new Error('Failed to load User ' + id));
-            req.profile = user;
-            next();
-        });
+    User.findOne({
+        _id: id
+    }).exec(function(err, user) {
+        if (err) return next(err);
+        if (!user) return next(new Error('Failed to load User ' + id));
+        req.profile = user;
+        next();
+    });
 };
